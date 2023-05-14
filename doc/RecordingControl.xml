@@ -430,7 +430,12 @@ Change Request 2061, 2063, 2065, 2109</revremark>
         <para>
           <emphasis role="bold">Mode</emphasis>: If it is idle, nothing shall happen. If it is active and the recording job has the highest priority, the device shall try to obtain data from the receivers. A client shall use GetRecordingJobState to determine if data transfer is really taking place. The only valid values for Mode shall be “Idle” and “Active”.</para>
         <para>
-          <emphasis role="bold">Priority</emphasis>: This shall be a non-negative number. If there are multiple recording jobs that store data to the same track, the device will only store the data for the recording job with the highest priority. The priority is specified per recording job, but the device shall determine the priority of each track individually. If there are two recording jobs with the same priority, the device shall record the data corresponding to the recording job that was activated the latest.</para>
+          <emphasis role="bold">Priority</emphasis>: This shall be a non-negative number. If there
+          are multiple recording jobs that store data to the same track, the device shall only store
+          data for the recording job with the highest priority. The priority is specified per
+          recording job, but the device shall determine the priority of each track individually. If
+          there are multiple recording jobs with the same highest priority it is undefind which of
+          them is activated.</para>
         <para>The value 0 indicates the lowest priority. Higher values shall indicate a higher priority.</para>
         <para>
           <emphasis role="bold">ScheduleToken:</emphasis> This attribute adds an additional requirement for activating the recording job. If this optional field is provided the job shall only record if the schedule exists and is active.</para>
@@ -439,9 +444,11 @@ Change Request 2061, 2063, 2065, 2109</revremark>
         <para>
           <emphasis role="bold">SourceToken</emphasis>: This field shall be a reference to the source of the data. The type of the source is determined by the attribute Type in the SourceToken structure. If Type is http://www.onvif.org/ver10/schema/Receiver, the token is a ReceiverReference. In this case the device shall receive the data over the network. If Type is http://www.onvif.org/ver10/schema/Profile, the token identifies a media profile, instructing the device to obtain data from a profile that exists on the local device. </para>
         <para>A device that includes the ONVIF Media Service shall support a Media Profile token and a device that includes the ONVIF Receiver Service shall support a Receiver token.</para>
-        <para>If the <emphasis role="bold">SourceToken</emphasis> is omitted, <emphasis role="bold">AutoCreateRecevier</emphasis> shall be true.</para>
         <para>
-          <emphasis role="bold">AutoCreateReceiver</emphasis>: If this field is TRUE, and if the <emphasis role="bold">SourceToken</emphasis> is omitted, the device shall create a receiver object (through the receiver service) and assign the ReceiverReference to the <emphasis role="bold">SourceToken</emphasis> field. When retrieving the RecordingJobConfiguration from the device, the <emphasis role="bold">AutoCreateReceiver</emphasis> field shall never be present.</para>
+          <emphasis role="bold">AutoCreateReceiver</emphasis>: If a request includes this field set to true and no source token is provided, the device shall create a
+          receiver object (through the receiver service) and assign the ReceiverReference to the
+          <emphasis role="bold">SourceToken</emphasis> field. A device shall never report this parameter in a 
+          RecordingJobConfiguration. A device may reject a request that neither contains a SourceToken nor AutoCreateRecevier set to true.</para>
         <para>
           <emphasis role="bold">SourceTag</emphasis>: If the received RTSP stream contains multiple tracks of the same type, the <emphasis role="bold">SourceTag</emphasis> differentiates between those Tracks.</para>
         <para>
@@ -875,6 +882,8 @@ Change Request 2061, 2063, 2065, 2109</revremark>
     <section>
       <title>CreateRecordingJob</title>
       <para>CreateRecordingJob shall create a new recording job. A device shall support adding a RecordingJob to a recording for which it signals Spare jobs via GetRecordingOptions.</para>
+      <para>A device should reject a configuration that neither includes a source with a source token nor AutoCreateReceiver set to true.</para>
+      <para>If the configuration doesn not include any tracks a device should assign all tracks of the corresponding recording.</para>
       <variablelist role="op">
         <varlistentry>
           <term>request</term>
@@ -912,7 +921,10 @@ Change Request 2061, 2063, 2065, 2109</revremark>
           </listitem>
         </varlistentry>
       </variablelist>
-      <para>The JobConfiguration returned from CreateRecordingJob shall be identical to the JobConfiguration passed into CreateRecordingJob, except for the ReceiverToken and the AutoCreateReceiver. In the returned structure, the ReceiverToken shall be present and valid and the AutoCreateReceiver field shall be omitted.</para>
+      <para>If a request with AutoCreateReceiver is accepted the response shall provide the attached
+        receiver token and the AutoCreateReceiver field shall be omitted.</para>
+      <para>The device response shall include the complete JobConfiguration including the associated
+        job token and the resulting recording track configuration.</para>
     </section>
     <section xml:id="_Toc246137491">
       <title>DeleteRecordingJob</title>
@@ -1489,6 +1501,7 @@ Change Request 2061, 2063, 2065, 2109</revremark>
   </tt:Data> 
 </tt:MessageDescription>
 ]]></programlisting>
+        <para>The ElementItem Information shall be provided whenever the state of the different tracks is not unique. It can be omitted when the state of all tracks of a recording is consistent.</para>
 </section>
       <section>
         <title>Configuration changes</title>
@@ -1648,31 +1661,30 @@ SetRecordingJobMode(JobToken, Active)
   <appendix>
     <title>Example scenario for Recording Job Priority (Informative)</title>
     <para>This annex describes a scenario for Multiple Recording Jobs configured to record data into a single recording.</para>
-    <para>As described in Section <xref linkend="_Toc247178839" />, "If there are two recording jobs with the same priority, the device shall record the data corresponding to the recording job that was activated the latest."</para>
     <para>Accordingly, a device supporting Multiple Recording Jobs is required to change the Job Modes of Recording Jobs with respect to Priority, as described below :</para>
     <variablelist>
       <varlistentry>
         <term>Step&#8199;1</term> <!-- inhibit line break -->
         <listitem>
-          <para>A Recording Job ‘J1’ with Priority ‘1’ is created in 'Active' mode</para>
-          <para>Job Modes of Recording Jobs after Step 1:</para>
+          <para>A Recording Job ‘J1’ with Priority ‘2’ is created in 'Active' mode</para>
+          <para>Job State of Recording Jobs after Step 1:</para>
           <para>Recording Job ‘J1’ = ACTIVE</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term>Step 2</term>
         <listitem>
-          <para>A new Recording Job ‘J2’ with Priority ‘1’ is now created in 'Active' mode</para>
-          <para>Job Modes of Recording Jobs after Step 2:</para>
-          <para>Recording Job ‘J1’ = IDLE</para>
-          <para>Recording Job ‘J2’ = ACTIVE</para>
+          <para>A new Recording Job ‘J2’ with Priority ‘4’ is now created in 'IDLE' mode</para>
+          <para>Job States of Recording Jobs after Step 2:</para>
+          <para>Recording Job ‘J1’ = ACTIVE</para>
+          <para>Recording Job ‘J2’ = IDLE</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term>Step 3</term>
         <listitem>
-          <para>Another Recording Job ‘J3’ with higher Priority ‘2’ is now created in 'Active' mode. Because it has a higher priority than J2, it takes precedence.</para>
-          <para>Job Modes of Recording Jobs after Step 3:</para>
+          <para>Another Recording Job ‘J3’ with higher Priority ‘3’ is now created in 'Active' mode. Because it has a higher priority than J1, it takes precedence.</para>
+          <para>Job States of Recording Jobs after Step 3:</para>
           <para>Recording Job ‘J1’ = IDLE</para>
           <para>Recording Job ‘J2’ = IDLE</para>
           <para>Recording Job ‘J3’ = ACTIVE</para>
@@ -1681,13 +1693,10 @@ SetRecordingJobMode(JobToken, Active)
       <varlistentry>
         <term>Step 4</term>
         <listitem>
-          <para>Recording Job ‘J3’ is now deleted, 'J1' and 'J2' are both at the highest priority, so Section <xref linkend="_Toc246137491" /> applies, and the device can activate either 'J1' or 'J2'.</para>
-          <para>Job Modes of Recording Jobs after Step 4, possibility 1: </para>
+          <para>Job States of Recording Jobs after Step 4:</para>
+          <para>Recording Job ‘J3’ is now deleted. 'J1' becomes active again since it is the active job with the highest priority.</para>
           <para>Recording Job ‘J1’ = ACTIVE</para>
           <para>Recording Job ‘J2’ = IDLE</para>
-          <para>Job Modes of Recording Jobs after Step 4, possibility 2:</para>
-          <para>Recording Job ‘J1’ = IDLE</para>
-          <para>Recording Job ‘J2’ = ACTIVE</para>
         </listitem>
       </varlistentry>
     </variablelist>
